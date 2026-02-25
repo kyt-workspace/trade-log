@@ -145,14 +145,14 @@ jobs:
           version: 8
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.13.1
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
 ```
-Pin these versions in `.nvmrc` (Node 20) and the `packageManager` field in root `package.json` (pnpm 8) so local dev matches CI exactly.
+Pin these versions in `.nvmrc` (Node 24.13.1) and the `packageManager` field in root `package.json` (pnpm 8) so local dev matches CI exactly.
 
 Keep CI green on `main` at all times. A failing gate blocks merge. Enable branch protection on `main` with this workflow set as a required status check.
 
