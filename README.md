@@ -12,8 +12,9 @@ Phase 1 bootstrap is complete at the repository level:
 - Shared strict TypeScript baseline is configured.
 - Local infrastructure scaffold is available (`docker-compose.yml` with Postgres + Redis).
 - Required environment variables are defined in `.env.example`.
+- `apps/api` is a real NestJS app with a `/v1/health` endpoint, global validation pipe, and a standard error filter (see AGENTS.md API Standards). Covered by a `supertest` integration test.
 
-Application features are not implemented yet. The current app/workspace scripts are placeholders while the first vertical slice (Trade CRUD + auth) is built.
+Trade CRUD, persistence, and auth are not implemented yet — that is the next vertical slice.
 
 ## Product goals
 
@@ -39,7 +40,7 @@ Application features are not implemented yet. The current app/workspace scripts 
 ```text
 apps/
   web/        # Next.js app scaffold (Phase 1 implementation pending)
-  api/        # NestJS app scaffold (Phase 1 implementation pending)
+  api/        # NestJS app — /v1/health live; Trade CRUD pending
   worker/     # BullMQ worker scaffold (Phase 4+)
 packages/
   shared/     # Shared domain types/constants
