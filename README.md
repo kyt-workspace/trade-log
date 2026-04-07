@@ -13,8 +13,9 @@ Phase 1 bootstrap is complete at the repository level:
 - Local infrastructure scaffold is available (`docker-compose.yml` with Postgres + Redis).
 - Required environment variables are defined in `.env.example`.
 - `apps/api` is a real NestJS app with a `/v1/health` endpoint, global validation pipe, and a standard error filter (see AGENTS.md API Standards). Covered by a `supertest` integration test.
+- Prisma `Trade` schema is migrated against local Postgres (`20260407143159_init_trade`) with hand-added CHECK constraints (`trades_fees_nonneg`, `trades_exit_consistency`) and seeded with 21 sample trades.
 
-Trade CRUD, persistence, and auth are not implemented yet — that is the next vertical slice.
+Trade CRUD endpoints, `PrismaModule` wiring into `AppModule`, and auth are not implemented yet — that is the next vertical slice.
 
 ## Product goals
 

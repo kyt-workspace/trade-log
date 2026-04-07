@@ -6,36 +6,24 @@ Date captured: 2026-04-07
 
 - Monorepo scaffold validated; root `typecheck`, `lint`, `test` all pass via `corepack pnpm`.
 - CI workflow at `.github/workflows/ci.yml` is in place.
-- `apps/api` is now a real NestJS app:
+- `apps/api` is a real NestJS app:
   - `AppModule` -> `HealthModule` -> `HealthController` exposed at `GET /v1/health`.
   - Global `/v1` prefix, `ValidationPipe`, and `HttpExceptionFilter` (standard error shape from AGENTS.md) wired in `src/bootstrap.ts`.
-  - Integration test `__tests__/health.e2e.spec.ts` covers the happy path and the 404 standard error envelope using `supertest`.
-  - Original `health.spec.ts` unit test still passes.
+  - Integration test `__tests__/health.e2e.spec.ts` covers the happy path and the 404 standard error envelope.
+- Prisma is fully bootstrapped:
+  - Migration `20260407143159_init_trade` applied to local Postgres, including hand-added CHECK constraints `trades_fees_nonneg` and `trades_exit_consistency`.
+  - Database seeded with 21 trades via `prisma db seed` (idempotent on `idempotencyKey`).
+  - `PrismaService` / `@Global` `PrismaModule` exist in `apps/api/src/prisma/` but are **not yet imported into `AppModule`** (held back so e2e tests don't need a live DB at boot).
 - `apps/web`, `apps/worker`, `packages/shared`, and `packages/utils` still use placeholder lint/test scripts.
 
 ## Recommended first task next session
 
-The Prisma schema, client, `PrismaService`/`PrismaModule`, and seed script are
-all in place. The migration itself was NOT run because Docker isn't available
-in the dev shell. Pick up here:
-
-1. With Docker Desktop running, bring up Postgres and run the first migration:
-   ```powershell
-   docker compose up -d
-   corepack pnpm --filter @trade-log/api prisma:migrate -- --name init_trade
-   ```
-   Then hand-edit the generated SQL in `apps/api/prisma/migrations/<ts>_init_trade/migration.sql` to add:
-   - `ALTER TABLE "trades" ADD CONSTRAINT trades_fees_nonneg CHECK ("fees" >= 0);`
-   - `ALTER TABLE "trades" ADD CONSTRAINT trades_exit_consistency CHECK (("exitAt" IS NULL) = ("exitPrice" IS NULL));`
-
-   Re-run `prisma migrate dev` to apply the amended SQL.
-2. Wire `PrismaModule` into `AppModule` (currently held back so e2e tests don't need a live DB at boot).
-3. Seed: `corepack pnpm --filter @trade-log/api prisma:seed` (21 trades, idempotent).
-4. Add trade calculation utilities in `packages/shared` (or `packages/utils`):
+1. Wire `PrismaModule` into `AppModule`. Update e2e tests to either spin up a test DB or mock `PrismaService` at the module boundary.
+2. Add trade calculation utilities in `packages/shared` (or `packages/utils`):
    - P&L including fees.
    - Win/loss derived from realized P&L after fees.
    - Unit tests covering long, short, and zero-fee edge cases (Phase 1 testing matrix).
-5. Add `/v1/trades` create + read endpoints in `apps/api`:
+3. Add `/v1/trades` create + read endpoints in `apps/api`:
    - DTOs with `class-validator`.
    - Integration tests for happy path AND a 400 validation failure (AGENTS API Standards).
 
@@ -51,6 +39,7 @@ in the dev shell. Pick up here:
 ```powershell
 cd C:\CodeWithKYT\kyt-workspace\trade-log
 corepack pnpm install
+docker compose up -d
 corepack pnpm typecheck
 corepack pnpm lint
 corepack pnpm test
@@ -66,11 +55,19 @@ corepack pnpm --filter @trade-log/api build
 corepack pnpm --filter @trade-log/api start
 ```
 
+Prisma helpers (run from `apps/api`):
+
+```powershell
+corepack pnpm exec prisma migrate dev
+corepack pnpm exec prisma studio
+corepack pnpm prisma:seed
+```
+
 ## Known environment caveats
 
-- In this environment, direct `pnpm` can fail in PowerShell due to `pnpm.ps1` execution policy restrictions.
-- Use `corepack pnpm ...` if direct `pnpm ...` is blocked.
-- A forced reinstall may occasionally require elevated permissions if Windows file locks cause `EPERM`.
+- `.env` must exist at both repo root and `apps/api/.env` (Prisma CLI loads from the schema directory). Both are git-ignored; copy from `.env.example`.
+- In this environment, direct `pnpm` can fail in PowerShell due to `pnpm.ps1` execution policy restrictions. Use `corepack pnpm ...` if direct `pnpm ...` is blocked.
+- If `prisma migrate` ever times out acquiring the advisory lock after a killed run, restart the postgres container: `docker restart trade-log-postgres`.
 
 ## Optional one-time PowerShell fix
 

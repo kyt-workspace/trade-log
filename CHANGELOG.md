@@ -5,14 +5,22 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2026-04-07
 
 ### Added
+- Applied first Prisma migration `20260407143159_init_trade` against local Postgres, creating the `trades` table, `TradeSide` enum, and indexes on `symbol`/`entryAt`/`exitAt`.
+- Hand-added two CHECK constraints to the migration SQL (Data Integrity Rule 6):
+  - `trades_fees_nonneg`: `"fees" >= 0`
+  - `trades_exit_consistency`: `("exitAt" IS NULL) = ("exitPrice" IS NULL)`
+- Seeded local database with 21 trades via `prisma db seed` (idempotent on `idempotencyKey`).
+
+### Changed
+- Removed the custom `output` path from the Prisma generator in `apps/api/prisma/schema.prisma` so `@prisma/client` re-exports the generated `TradeSide` enum and `Prisma.Decimal` runtime — required for `prisma/seed.ts` to type-check and execute.
+
+### Added
 - Added Prisma to `apps/api` (`prisma@5.22.0`, `@prisma/client@5.22.0`, `ts-node@10.9.2`).
 - Added `apps/api/prisma/schema.prisma` with the Phase 1 `Trade` model: `cuid` id, `symbol` (varchar 16), `TradeSide` enum (`LONG|SHORT`), `Decimal(18,6)` quantity/prices/fees, nullable `exitPrice`/`exitAt` for open positions, `rawPayload` JSON for audit (Data Integrity Rule 4), unique `idempotencyKey` (Rule 5), and indexes on `symbol`/`entryAt`/`exitAt` (Rule 7).
 - Added `PrismaService` (`OnModuleInit`/`OnModuleDestroy`) and a `@Global` `PrismaModule` in `apps/api/src/prisma/`. Defined but **not yet imported into `AppModule`** so existing e2e tests do not require a live Postgres at boot — it will be wired in alongside the `/v1/trades` endpoints.
 - Added `apps/api/prisma/seed.ts` seeding 21 realistic trades (long/short, win/loss, with fees, plus one open position) via `upsert` keyed on `idempotencyKey` so reseeding is safe.
 - Added `apps/api` package scripts: `prisma:generate`, `prisma:migrate`, `prisma:studio`, `prisma:seed`, plus a `prisma` config block pointing `prisma db seed` at `prisma/seed.ts` via `ts-node`.
 
-### Notes
-- The Prisma migration itself (`prisma migrate dev --name init_trade`) has not been run from this session because Docker/Postgres is not reachable from the dev shell. The schema and generated client are in place; running `pnpm --filter @trade-log/api prisma:migrate` against the local Postgres in `docker-compose.yml` will produce the first migration. The CHECK constraint for `fees >= 0` and the `realized => exitAt IS NOT NULL` invariant should be added to that migration's SQL by hand (Prisma 5 has no schema-level CHECK support).
 
 ### Added
 - Bootstrapped real NestJS application in `apps/api` with `AppModule`, `HealthModule`, and a `HealthController` mounted under the global `/v1` prefix.
