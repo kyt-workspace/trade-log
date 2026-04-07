@@ -1,0 +1,53 @@
+// Trade Log - Prisma schema
+// Phase 1: core Trade model.
+// Data Integrity Rules (AGENTS.md):
+//   1. P&L includes fees
+//   2. Win/Loss derives from realized P&L after fees
+//   3. Support long and short trades
+//   4. Preserve raw import payload for audit/debug
+//   5. Prevent duplicate imports via idempotency key
+//   6. DB constraints (non-negative fees, valid side enum, required timestamps for realized trades)
+//   7. Indexes on common filters (symbol, entry_date, exit_date)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TradeSide {
+  LONG
+  SHORT
+}
+
+/// A single round-trip (or open) trade record.
+/// `exitPrice` and `exitAt` are nullable so open positions can be tracked,
+/// but realized trades require both (enforced at the application layer
+/// and via a CHECK constraint added in the migration).
+model Trade {
+  id              String    @id @default(cuid())
+  symbol          String    @db.VarChar(16)
+  side            TradeSide
+  quantity        Decimal   @db.Decimal(18, 6)
+  entryPrice      Decimal   @db.Decimal(18, 6)
+  exitPrice       Decimal?  @db.Decimal(18, 6)
+  fees            Decimal   @default(0) @db.Decimal(18, 6)
+  entryAt         DateTime
+  exitAt          DateTime?
+  notes           String?
+  /// Original broker/import payload preserved verbatim for audit (Rule 4).
+  rawPayload      Json?
+  /// Unique key supplied by the import pipeline to prevent duplicates (Rule 5).
+  idempotencyKey  String?   @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([symbol])
+  @@index([entryAt])
+  @@index([exitAt])
+  @@map("trades")
+}

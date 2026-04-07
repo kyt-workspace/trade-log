@@ -15,18 +15,27 @@ Date captured: 2026-04-07
 
 ## Recommended first task next session
 
-Begin the Trade vertical slice (Phase 1, DB -> API -> UI):
+The Prisma schema, client, `PrismaService`/`PrismaModule`, and seed script are
+all in place. The migration itself was NOT run because Docker isn't available
+in the dev shell. Pick up here:
 
-1. Add Prisma to `apps/api`:
-   - `schema.prisma` with a `Trade` model honoring Data Integrity Rules (`LONG|SHORT` enum, fees >= 0 check, entry/exit timestamps, raw payload JSON, idempotency key unique).
-   - First migration against the local Postgres from `docker-compose.yml`.
-   - `PrismaModule` + `PrismaService` injected into Nest.
-   - `prisma db seed` script seeding >= 20 realistic trades (mix of win/loss, long/short, with fees).
-2. Add trade calculation utilities in `packages/shared` (or `packages/utils`):
+1. With Docker Desktop running, bring up Postgres and run the first migration:
+   ```powershell
+   docker compose up -d
+   corepack pnpm --filter @trade-log/api prisma:migrate -- --name init_trade
+   ```
+   Then hand-edit the generated SQL in `apps/api/prisma/migrations/<ts>_init_trade/migration.sql` to add:
+   - `ALTER TABLE "trades" ADD CONSTRAINT trades_fees_nonneg CHECK ("fees" >= 0);`
+   - `ALTER TABLE "trades" ADD CONSTRAINT trades_exit_consistency CHECK (("exitAt" IS NULL) = ("exitPrice" IS NULL));`
+
+   Re-run `prisma migrate dev` to apply the amended SQL.
+2. Wire `PrismaModule` into `AppModule` (currently held back so e2e tests don't need a live DB at boot).
+3. Seed: `corepack pnpm --filter @trade-log/api prisma:seed` (21 trades, idempotent).
+4. Add trade calculation utilities in `packages/shared` (or `packages/utils`):
    - P&L including fees.
    - Win/loss derived from realized P&L after fees.
    - Unit tests covering long, short, and zero-fee edge cases (Phase 1 testing matrix).
-3. Add `/v1/trades` create + read endpoints in `apps/api`:
+5. Add `/v1/trades` create + read endpoints in `apps/api`:
    - DTOs with `class-validator`.
    - Integration tests for happy path AND a 400 validation failure (AGENTS API Standards).
 
